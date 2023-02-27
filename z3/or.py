@@ -10,7 +10,7 @@ s = Solver()
 def getAbsValue(name):
     zeros=BitVec('zeros'+name,WIDTH)
     ones=BitVec('ones'+name,WIDTH)
-    s.add(zeros & ones !=0)
+    s.add(zeros & ones ==0)
     return (zeros,ones)
 
 X=getAbsValue('X')
