@@ -1,61 +1,87 @@
 from z3 import *
 
-#For two bit vectors
+def concreteOp(x, y):
+    return x|y
+
 def contains(x,y):
     return (x|y) == x
 
-WIDTH=32
-s = Solver()
+WIDTH=4
 
-def getAbsValue(name):
-    zeros=BitVec('zeros'+name,WIDTH)
-    ones=BitVec('ones'+name,WIDTH)
-    s.add(zeros & ones == 0)
-    return (zeros,ones)
+### Tests ###
 
-X=getAbsValue('X')
-Y=getAbsValue('Y')
-
-def getInstanceFromAbsValue(name,absValue):
-    inst=BitVec(name,WIDTH)
-    s.add(contains(inst,absValue[1]))
-    s.add(contains(~inst,absValue[0]))
-    return inst
-
-def g(absX,absY):
-    return (absX[0]&absY[0],absX[1]|absY[1])
+def orImpl(absX,absY):
+    return (absX[0] & absY[0], absX[1] | absY[1])
 
 #This is a binary operator eliminating all known information
 #Sound but not precise
-allZeros=BitVec('allZeros',WIDTH)
-s.add(allZeros==0)
 def allToBottom(absX,absY):
-    return (allZeros,allZeros)
+    return (0,0)
 
 #returns a constant ones(absX) | ones(absY)
 #precise but not sound
 def allToConstant(absX,absY):
     return (~(absX[1]|absY[1]),absX[1]|absY[1])
 
-G=g(X,Y)
-#G=allToBottom(X,Y)
-#G=allToConstant(X,Y)
+#sound but not precise
+def onlyOnes(absX,absY):
+    return (0, absX[1] | absY[1])
 
-def soundnessCheck():
-    instX = getInstanceFromAbsValue('insX', X)
-    instY = getInstanceFromAbsValue('insY', Y)
+#sound but not precise
+def onlyZeros(absX, absY):
+    return (absX[0] & absY[0], 0)
+
+#not precise and not sound
+#not sound example: 0x00 | xxxx
+def proj1(absX, absY):
+    return (absX[0], absX[1])
+
+#same as proj1
+def proj2(absX, absY):
+    return (absY[0], absY[1])
+
+### Tests ###
+
+def absOp(absX, absY):
+    return orImp(absX,absY)
+
+def getAbsValue(name, s):
+    zeros=BitVec('zeros'+name,WIDTH)
+    ones=BitVec('ones'+name,WIDTH)
+    s.add(zeros & ones == 0)
+    return (zeros,ones)
+
+def getInstanceFromAbsValue(name,absValue,s):
+    inst=BitVec(name,WIDTH)
+    s.add(contains(inst,absValue[1]))
+    s.add(contains(~inst,absValue[0]))
+    return inst
+
+def soundnessCheck(concreteOp,absOp):
+    s=Solver()
+    X = getAbsValue('X',s)
+    Y = getAbsValue('Y',s)
+    G=absOp(X,Y)
+    instX = getInstanceFromAbsValue('insX', X,s)
+    instY = getInstanceFromAbsValue('insY', Y,s)
     s.add(Not(And(
-        contains(instX|instY,G[1]),
-        contains(~(instX|instY),G[0])
+        contains(concreteOp(instX,instY),G[1]),
+        contains(~concreteOp(instX,instY),G[0])
     )))
     if str(s.check())=='sat':
         print("soundness check failed!\ncounterexample:\n")
         print(s.model())
-    else:
+    elif str(s.check()) == 'unsat':
         print("soundness check successfully")
+    else:
+        print("unknown: ", s.check())
 
-def precisionCheck():
-    instG = getInstanceFromAbsValue("insG", G)
+def precisionCheck(concreteOp,absOp):
+    s=Solver()
+    X = getAbsValue('X',s)
+    Y = getAbsValue('Y',s)
+    G=absOp(X,Y)
+    instG = getInstanceFromAbsValue("insG", G,s)
     instX = BitVec('insX', WIDTH)
     instY = BitVec('insY', WIDTH)
     s.add(
@@ -64,13 +90,16 @@ def precisionCheck():
                            contains(~instX, X[0]),
                            contains(instY, Y[1]),
                            contains(~instY, Y[0])),
-                       instG != (instX | instY)))
+                       instG != concreteOp(instX, instY)))
     )
     if str(s.check()) == 'sat':
         print("precision check failed!\ncounterexample:\n")
         print(s.model())
-    else:
+    elif str(s.check()) == 'unsat':
         print("precision check successfully")
+    else:
+        print("unknown: ",s.check())
 
-#soundnessCheck()
-precisionCheck()
+soundnessCheck(concreteOp,absOp)
+print("=========")
+precisionCheck(concreteOp,absOp)
