@@ -43,7 +43,7 @@ def proj2(absX, absY):
 ### Tests ###
 
 def absOp(absX, absY):
-    return orImp(absX,absY)
+    return orImpl(absX,absY)
 
 def getAbsValue(name, s):
     zeros=BitVec('zeros'+name,WIDTH)
@@ -68,13 +68,14 @@ def soundnessCheck(concreteOp,absOp):
         contains(concreteOp(instX,instY),G[1]),
         contains(~concreteOp(instX,instY),G[0])
     )))
-    if str(s.check())=='sat':
+    checkRes=s.check()
+    if str(checkRes)=='sat':
         print("soundness check failed!\ncounterexample:\n")
         print(s.model())
-    elif str(s.check()) == 'unsat':
+    elif str(checkRes) == 'unsat':
         print("soundness check successfully")
     else:
-        print("unknown: ", s.check())
+        print("unknown: ", checkRes)
 
 def precisionCheck(concreteOp,absOp):
     s=Solver()
@@ -92,13 +93,14 @@ def precisionCheck(concreteOp,absOp):
                            contains(~instY, Y[0])),
                        instG != concreteOp(instX, instY)))
     )
-    if str(s.check()) == 'sat':
+    checkRes=s.check()
+    if str(checkRes) == 'sat':
         print("precision check failed!\ncounterexample:\n")
         print(s.model())
-    elif str(s.check()) == 'unsat':
+    elif str(checkRes) == 'unsat':
         print("precision check successfully")
     else:
-        print("unknown: ",s.check())
+        print("unknown: ",checkRes)
 
 soundnessCheck(concreteOp,absOp)
 print("=========")
