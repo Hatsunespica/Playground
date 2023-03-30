@@ -15,7 +15,13 @@ def XOR(opList):
 def TRUNC(opList):
     return opList[0]&((1<<opList[1])-1)
 
-WIDTH=4
+def ADD(opList):
+    return opList[0]+opList[1]
+
+def SUB(opList):
+    return opList[0]-opList[1]
+
+WIDTH=8
 
 def orImpl(opList, solver):
     return (opList[0][0] & opList[1][0], opList[0][1] | opList[1][1])
@@ -31,6 +37,40 @@ def XorImpl(opList, solver):
 def TruncImpl(opList, solver):
     solver.add(opList[1]<(1<<WIDTH))
     return (TRUNC((opList[0][0],opList[1])),TRUNC((opList[0][1],opList[1])))
+
+
+def AddImpl(opList, solver):
+    possibleSumZero=getMaxFromAbsValue(opList[0])+getMaxFromAbsValue(opList[1])
+    possibleSumOne=getMinFromAbsValue(opList[0]) + getMinFromAbsValue(opList[1])
+
+    carryKnownZero=~(possibleSumZero^opList[0][0]^opList[1][0])
+    carryKnownOne=possibleSumOne^opList[0][1]^opList[1][1]
+
+    LHSKnownUnion=opList[0][0]|opList[0][1]
+    RHSKnownUnion=opList[1][0]|opList[1][1]
+
+    caryKnownUnion=carryKnownZero|carryKnownOne
+    known=caryKnownUnion&LHSKnownUnion&RHSKnownUnion
+    return (~possibleSumZero&known,possibleSumOne&known)
+
+def SubImpl(opList, solver):
+    #swap
+    opList[1]=(opList[1][1],opList[1][0])
+
+    possibleSumZero=getMaxFromAbsValue(opList[0])+getMaxFromAbsValue(opList[1])+1
+    possibleSumOne=getMinFromAbsValue(opList[0]) + getMinFromAbsValue(opList[1])+1
+
+    carryKnownZero=~(possibleSumZero^opList[0][0]^opList[1][0])
+    carryKnownOne=possibleSumOne^opList[0][1]^opList[1][1]
+
+    LHSKnownUnion=opList[0][0]|opList[0][1]
+    RHSKnownUnion=opList[1][0]|opList[1][1]
+
+    caryKnownUnion=carryKnownZero|carryKnownOne
+    known=caryKnownUnion&LHSKnownUnion&RHSKnownUnion
+    #swap back
+    opList[1]=(opList[1][1],opList[1][0])
+    return (~possibleSumZero&known,possibleSumOne&known)
 
 def absOp(opList, solver):
     return orImpl(opList,solver)
@@ -96,5 +136,8 @@ def precisionCheck(concreteOp,absOp):
 
 #soundnessCheck(OR,orImpl)
 #soundnessCheck(TRUNC,TruncImpl)
+soundnessCheck(SUB,SubImpl)
 print("=========")
+precisionCheck(SUB,SubImpl)
+#precisionCheck(ADD,AddImpl)
 #precisionCheck(XOR,XorImpl)
